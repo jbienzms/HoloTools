@@ -70,6 +70,9 @@
     <Reference Include="Mono.Cecil">
       <HintPath>Library\UnityAssemblies\Mono.Cecil.dll</HintPath>
     </Reference>
+    <Reference Include="WindowsDevicePortalWrapper.UniversalWindows">
+      <HintPath>Assets\Plugins\WindowsDevicePortalWrapper.UniversalWindows.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\Adept\Binding\Scripts\BindingBase.cs" />
@@ -254,6 +257,7 @@
     <Compile Include="Assets\HoloToolkit\Utilities\Tests\Scripts\PlaneTargetGroup.cs" />
     <Compile Include="Assets\HoloToolkit\Utilities\Tests\Scripts\PlaneTargetGroupPicker.cs" />
     <Compile Include="Assets\HoloToolkit\Utilities\Tests\TextToSpeechManagerTest.cs" />
+    <Compile Include="Assets\Scripts\FBController.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\HoloToolkit\Input\Shaders\CursorShader.shader" />

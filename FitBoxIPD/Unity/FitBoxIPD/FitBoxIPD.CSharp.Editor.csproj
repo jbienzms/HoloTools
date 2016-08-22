@@ -106,6 +106,9 @@
     <Reference Include="Mono.Cecil">
       <HintPath>Library\UnityAssemblies\Mono.Cecil.dll</HintPath>
     </Reference>
+    <Reference Include="WindowsDevicePortalWrapper.UniversalWindows">
+      <HintPath>Assets\Plugins\WindowsDevicePortalWrapper.UniversalWindows.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="FitBoxIPD.CSharp.csproj">
