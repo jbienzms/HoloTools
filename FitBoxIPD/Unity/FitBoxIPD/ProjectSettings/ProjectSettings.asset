@@ -340,11 +340,11 @@ PlayerSettings:
   scriptingDefineSymbols: {}
   metroPackageName: FitBoxIPD
   metroPackageVersion: 
-  metroCertificatePath: 
+  metroCertificatePath: Assets\WSATestCertificate.pfx
   metroCertificatePassword: 
-  metroCertificateSubject: 
-  metroCertificateIssuer: 
-  metroCertificateNotAfter: 0000000000000000
+  metroCertificateSubject: DefaultCompany
+  metroCertificateIssuer: DefaultCompany
+  metroCertificateNotAfter: 804d0d9f271bd301
   metroApplicationDescription: FitBoxIPD
   wsaImages: {}
   metroTileShortName: 
