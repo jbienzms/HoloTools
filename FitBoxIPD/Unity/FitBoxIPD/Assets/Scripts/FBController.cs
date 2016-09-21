@@ -1,10 +1,12 @@
 ﻿using UnityEngine;
 using System.Collections;
 using UnityEngine.UI;
+using UnityEngine.Windows.Speech;
 
 #if WINDOWS_UWP
 using System.Threading.Tasks;
 using Microsoft.Tools.WindowsDevicePortal;
+
 #endif
 
 public class FBController : MonoBehaviour
@@ -12,6 +14,8 @@ public class FBController : MonoBehaviour
     #region Constants
     // How often the update loop polls the portal for IPD updates
     private const float UPDATE_PERIOD = 5.0f;
+
+    private DictationRecognizer m_DictationRecognizer;
     #endregion // Constants
 
     #region Inspector Fields
@@ -28,24 +32,29 @@ public class FBController : MonoBehaviour
     public Text statusText;
 
     [Tooltip("GameObject that contains all elements for the Updating state.")]
-    public GameObject updatingState;
+    public GameObject updatingState;   
+
+    [Tooltip("Text control used to display the last dictated sentence")]
+    public Text dictatedSentence;
+
     #endregion // Inspector Fields
+    
 
     #region Member Variables
-    #if WINDOWS_UWP
+#if WINDOWS_UWP
     private DevicePortal portal;
-    #endif
+#endif
     #endregion // Member Variables
 
     #region Internal Methods
-    #if WINDOWS_UWP
+#if WINDOWS_UWP
     private async Task EnsurePortalAsync()
     {
         if (portal == null)
         {
             portal = new DevicePortal(
                 new DefaultDevicePortalConnection(
-                    "https://127.0.0.1",
+                    "https://10.0.0.15",
                     "???",
                     "???"));
 
@@ -72,13 +81,33 @@ public class FBController : MonoBehaviour
             UnityEngine.WSA.Application.InvokeOnAppThread(ShowError, false);
         }
     }
-    #else
-    private void ReadValues() { }
-    #endif
 
-    /// <summary>
-    /// Shows the error state.
-    /// </summary>
+    private async void WriteValues(float ipd)
+    {
+        try
+        {
+            // Wait for connection
+            await EnsurePortalAsync();
+
+             // Set IPD
+            await portal.SetInterPupilaryDistance(ipd);            
+            
+        }
+        catch
+        {
+            // Show error on Unity thread
+            UnityEngine.WSA.Application.InvokeOnAppThread(ShowError, false);
+        }
+    }
+    
+#else
+    private void ReadValues() { }
+    private void WriteValues(float ipd)   {  }
+#endif
+
+        /// <summary>
+        /// Shows the error state.
+        /// </summary>
     private void ShowError()
     {
         // Set proper state
@@ -128,11 +157,17 @@ public class FBController : MonoBehaviour
     {
         while (true)
         {
-            // Set update state
+            // Set update state            
             ShowUpdate("Reading IPD...");
 
             // Actually read IPD
             ReadValues();
+
+            // Restart the dictationRecognizer in case of it had paused
+            if (m_DictationRecognizer.Status != SpeechSystemStatus.Running)
+            {
+                m_DictationRecognizer.Start();
+            }
 
             // Wait for next poll
             yield return new WaitForSeconds(UPDATE_PERIOD);
@@ -141,10 +176,63 @@ public class FBController : MonoBehaviour
     #endregion // Internal Methods
 
     #region Behaviour Overrides
+
     // Use this for initialization
     void Start()
     {
+        m_DictationRecognizer = new DictationRecognizer();
+
+        m_DictationRecognizer.DictationResult += DictationRecognizer_DictationResult;
+
+        m_DictationRecognizer.Start();
+     
         StartCoroutine(UpdateLoop());
     }
-#endregion // Behaviour Overrides
+    void OnDestroy()
+    {
+        m_DictationRecognizer.DictationResult -= DictationRecognizer_DictationResult;
+        m_DictationRecognizer.Dispose();
+
+    }
+    #endregion // Behaviour Overrides
+
+    #region Delegates
+    private void DictationRecognizer_DictationResult(string text, ConfidenceLevel confidence)
+    {
+        if (dictatedSentence)
+        {
+            dictatedSentence.text = text;
+        }
+
+        if (text.ToUpper().Contains("SET") && text.ToUpper().Contains("IPD"))
+        {
+            string[] mWords = text.Split(' ');
+            for (int i = 0; i< mWords.Length; i++)
+            {
+                try
+                {
+                    float mValue = float.Parse(mWords[i]);
+                    if (mValue >= 55 && mValue <= 75)
+                    {
+                        WriteValues(mValue);
+                    }
+                    else
+                    {
+                        if (dictatedSentence)
+                        {
+                            dictatedSentence.text += "\n< < IPD must be between 55 - 75 > >";
+                        }
+                    }
+                }
+                catch 
+                {
+
+                }
+
+            }
+        }
+
+    }
+    #endregion //Delegates
+
 }
