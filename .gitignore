@@ -19,6 +19,7 @@ Data/
 
 # UWP Exported Binaries
 /**/UWP/**/*.dll
+/**/UWP/**/*.exe
 
 # HoloLens Binaries
 SharingClient.dll
@@ -29,6 +30,7 @@ Adept/
 
 # HoloToolkit which is symlinked in
 HoloToolkit/
+HoloToolkit-Examples/
 
 
 # Unity3D Generated File On Crash Reports
