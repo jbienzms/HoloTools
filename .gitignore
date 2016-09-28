@@ -17,6 +17,9 @@ Players/
 # Unity3D Exported Data files
 Data/
 
+# UWP Exported Binaries
+/**/UWP/**/*.dll
+
 # HoloLens Binaries
 SharingClient.dll
 PlaneFinding.dll
