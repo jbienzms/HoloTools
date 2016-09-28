@@ -2,63 +2,169 @@
 using System.Collections;
 using UnityEngine.UI;
 using UnityEngine.Windows.Speech;
+using System;
+using HoloToolkit.Unity;
+using Adept;
 
 #if WINDOWS_UWP
-using System.Threading.Tasks;
 using Microsoft.Tools.WindowsDevicePortal;
-
+using System.Linq;
+using System.Threading.Tasks;
+using Windows.Security.Credentials;
 #endif
+
+public enum FBControllerState
+{
+    /// <summary>
+    /// The controller is still initializing.
+    /// </summary>
+    Initializing,
+
+    /// <summary>
+    /// Attempting silent authentication
+    /// </summary>
+    SilentAuth,
+
+    /// <summary>
+    /// Attempting interactive login.
+    /// </summary>
+    LoggingIn,
+    
+    /// <summary>
+    /// The user is logged out.
+    /// </summary>
+    LoggedOut,
+
+    /// <summary>
+    /// The user is logged in.
+    /// </summary>
+    LoggedIn
+};
 
 public class FBController : MonoBehaviour
 {
     #region Constants
-    // How often the update loop polls the portal for IPD updates
-    private const float UPDATE_PERIOD = 5.0f;
-
-    private DictationRecognizer m_DictationRecognizer;
+    private const bool IS_SIDELOADED = true;                // Whether this is a side loaded or store build
+    static public readonly string PortalResourceName = "Device Portal";   // Resource name used to store the password in password vault
+    private const float UPDATE_PERIOD = 5.0f;               // How often the update loop polls the portal for IPD updates
     #endregion // Constants
 
     #region Inspector Fields
-    [Tooltip("GameObject that contains all elements for the Error state.")]
-    public GameObject errorState;
+    [Tooltip("Text control used to display error messages.")]
+    public Text errorText;
 
     [Tooltip("Text control used to display the current IPD.")]
     public Text ipdText;
 
-    [Tooltip("GameObject that contains all elements for the Loaded state.")]
-    public GameObject loadedState;
+    [Tooltip("GameObject that contains all elements for the Logged In state.")]
+    public GameObject loggedInState;
 
-    [Tooltip("Text control used to display status messages.")]
-    public Text statusText;
-
-    [Tooltip("GameObject that contains all elements for the Updating state.")]
-    public GameObject updatingState;   
-
-    [Tooltip("Text control used to display the last dictated sentence")]
-    public Text dictatedSentence;
-
+    [Tooltip("Manager used for speaking text.")]
+    public TextToSpeechManager textToSpeech;
     #endregion // Inspector Fields
-    
 
     #region Member Variables
-#if WINDOWS_UWP
+    private AppViewInfo authView;
+    private DictationRecognizer dictationRecognizer;
+    private FBControllerState state;
+
+    #if WINDOWS_UWP
     private DevicePortal portal;
+    private PasswordVault vault;
 #endif
     #endregion // Member Variables
 
     #region Internal Methods
-#if WINDOWS_UWP
-    private async Task EnsurePortalAsync()
+    #if WINDOWS_UWP
+    /// <summary>
+    /// The Authentication State Machine
+    /// </summary>
+    private async void AuthStateMachine()
     {
-        if (portal == null)
+        switch (state)
         {
+            case FBControllerState.Initializing:
+                // Now doing silent auth
+                State = FBControllerState.SilentAuth;
+
+                // Attempt to authenticate in case already cached credentials
+                if (await AuthSilentAsync())
+                {
+                    State = FBControllerState.LoggedIn;
+                }
+                else
+                {
+                    // Not authenticated. Start login flow.
+                    State = FBControllerState.LoggingIn;
+                    await StartLoginAsync();
+                }
+                break;
+
+            case FBControllerState.LoggingIn:
+                // Just returned from login dialog. Attempt silent auth again.
+                if (await AuthSilentAsync())
+                {
+                    State = FBControllerState.LoggedIn;
+                }
+                else
+                {
+                    State = FBControllerState.LoggedOut;
+                }
+                break;
+        }
+
+        // If we get here and we're logged in, start the update loop
+        if (state == FBControllerState.LoggedIn)
+        {
+            StartCoroutine(UpdateLoop());
+        }
+    }
+
+    private async Task<bool> AuthSilentAsync()
+    {
+        // Placeholder
+        PasswordCredential cred = null;
+
+        // Try to get user name and password
+        try
+        {
+            cred = vault.FindAllByResource(PortalResourceName).FirstOrDefault();
+
+            // Password does not come across with the method above. We must call another method.
+            if (cred != null)
+            {
+                cred = vault.Retrieve(PortalResourceName, cred.UserName);
+            }
+        }
+        catch { }
+
+        // If no credentials were found, fail
+        if (cred == null) { return false; }
+
+        // Credentials found. Try and log into portal
+        try
+        {
+            // Create portal object
             portal = new DevicePortal(
                 new DefaultDevicePortalConnection(
-                    "https://10.0.0.15",
-                    "???",
-                    "???"));
+                    "https://127.0.0.1",
+                    cred.UserName,
+                    cred.Password));
 
+            // Attempt to connect
             await portal.Connect();
+
+            // Get IPD
+            var ipd = await portal.GetInterPupilaryDistance();
+
+            // Success!
+            return true;
+        }
+        catch (Exception ex)
+        {
+            // Problem
+            ShowError(ex.Message);
+            return false;
         }
     }
 
@@ -66,54 +172,76 @@ public class FBController : MonoBehaviour
     {
         try
         {
-            // Wait for connection
-            await EnsurePortalAsync();
-
             // Get IPD
             float ipd = await portal.GetInterPupilaryDistance();
 
-            // Show IPD on Unity thread
-            UnityEngine.WSA.Application.InvokeOnAppThread(() => { ShowIpd(ipd); }, false);
+            // Show IPD
+            ShowIpd(ipd);
         }
-        catch
+        catch (Exception ex)
         {
             // Show error on Unity thread
-            UnityEngine.WSA.Application.InvokeOnAppThread(ShowError, false);
+            ShowError(ex.Message);
         }
     }
 
-    private async void WriteValues(float ipd)
+    /// <summary>
+    /// Starts the login (authentication) process by switching to XAML.
+    /// </summary>
+    private async Task StartLoginAsync()
+    {
+        // Get auth view if not already obtained
+        if (authView == null)
+        {
+            authView = AppViewManager.Views["Auth"];
+            authView.Consolidated += AuthView_Consolidated;
+        }
+
+        // Switch to auth view
+        await authView.SwitchAsync();
+    }
+
+    private async void UpdateIpd(float ipd)
     {
         try
         {
-            // Wait for connection
-            await EnsurePortalAsync();
-
              // Set IPD
-            await portal.SetInterPupilaryDistance(ipd);            
-            
+            await portal.SetInterPupilaryDistance(ipd);
+
+            // Reread values
+            ReadValues();
+
+            // Define message to speak
+            var speakText = string.Format("IPD set to {0}", ipd);
+
+            // Speak the message
+            textToSpeech.SpeakText(speakText);
         }
-        catch
+        catch (Exception ex)
         {
             // Show error on Unity thread
-            UnityEngine.WSA.Application.InvokeOnAppThread(ShowError, false);
+            ShowError(ex.Message);
         }
     }
-    
-#else
-    private void ReadValues() { }
-    private void WriteValues(float ipd)   {  }
-#endif
 
-        /// <summary>
-        /// Shows the error state.
-        /// </summary>
-    private void ShowError()
+    #else
+    private void AuthenticateAsync() { }
+    private void ReadValues() { }
+    private void UpdateIpd(float ipd)   {  }
+    #endif
+
+    /// <summary>
+    /// Shows the error state.
+    /// </summary>
+    /// <param name="error">
+    /// The error message to display.
+    /// </param>
+    private void ShowError(string error)
     {
-        // Set proper state
-        errorState.SetActive(true);
-        loadedState.SetActive(false);
-        updatingState.SetActive(false);
+        ThreadExtensions.RunOnAppThread(() =>
+        {
+            errorText.text = error;
+        });
     }
 
     /// <summary>
@@ -124,30 +252,10 @@ public class FBController : MonoBehaviour
     /// </param>
     private void ShowIpd(float ipd)
     {
-        // Update text
-        ipdText.text = ipd.ToString();
-
-        // Set proper state
-        errorState.SetActive(false);
-        loadedState.SetActive(true);
-        updatingState.SetActive(false);
-    }
-
-    /// <summary>
-    /// Shows the update state.
-    /// </summary>
-    /// <param name="status">
-    /// The status message text.
-    /// </param>
-    private void ShowUpdate(string status)
-    {
-        // Update text field
-        statusText.text = status;
-
-        // Set proper state
-        errorState.SetActive(false);
-        loadedState.SetActive(false);
-        updatingState.SetActive(true);
+        ThreadExtensions.RunOnAppThread(() =>
+        {
+            ipdText.text = ipd.ToString();
+        });
     }
 
     /// <summary>
@@ -157,82 +265,128 @@ public class FBController : MonoBehaviour
     {
         while (true)
         {
-            // Set update state            
-            ShowUpdate("Reading IPD...");
-
             // Actually read IPD
             ReadValues();
 
-            // Restart the dictationRecognizer in case of it had paused
-            if (m_DictationRecognizer.Status != SpeechSystemStatus.Running)
+            // Start or restart the Dictation Recognizer in case it has paused
+            if (dictationRecognizer.Status != SpeechSystemStatus.Running)
             {
-                m_DictationRecognizer.Start();
+                dictationRecognizer.Start();
             }
 
             // Wait for next poll
             yield return new WaitForSeconds(UPDATE_PERIOD);
         }
     }
+
+    private void UpdateVisualState()
+    {
+        ThreadExtensions.RunOnAppThread(() =>
+        {
+            switch (state)
+            {
+                case FBControllerState.LoggedIn:
+                    loggedInState.SetActive(true);
+                    break;
+                default:
+                    loggedInState.SetActive(false);
+                    break;
+            }
+        });
+    }
     #endregion // Internal Methods
 
     #region Behaviour Overrides
-
-    // Use this for initialization
     void Start()
     {
-        m_DictationRecognizer = new DictationRecognizer();
+        if (IS_SIDELOADED)
+        {
+            // Create recognizer and subscribe
+            dictationRecognizer = new DictationRecognizer();
+            dictationRecognizer.DictationResult += DictationRecognizer_DictationResult;
 
-        m_DictationRecognizer.DictationResult += DictationRecognizer_DictationResult;
+            // Create the valut
+            vault = new PasswordVault();
 
-        m_DictationRecognizer.Start();
-     
-        StartCoroutine(UpdateLoop());
+            // Start authentication state machine
+            AuthStateMachine();
+        }
+        else
+        {
+            // Store builds cannot log in
+            State = FBControllerState.LoggedOut;
+        }
     }
+
     void OnDestroy()
     {
-        m_DictationRecognizer.DictationResult -= DictationRecognizer_DictationResult;
-        m_DictationRecognizer.Dispose();
-
+        dictationRecognizer.DictationResult -= DictationRecognizer_DictationResult;
+        dictationRecognizer.Dispose();
     }
     #endregion // Behaviour Overrides
 
-    #region Delegates
+    #region Overrides / Event Handlers
+    private void AuthView_Consolidated(object sender, EventArgs e)
+    {
+        // Auth view has been closed. Continue auth state machine.
+        AuthStateMachine();
+    }
+
     private void DictationRecognizer_DictationResult(string text, ConfidenceLevel confidence)
     {
-        if (dictatedSentence)
-        {
-            dictatedSentence.text = text;
-        }
+        // To upper for checking
+        var utext = text.ToUpper();
 
-        if (text.ToUpper().Contains("SET") && text.ToUpper().Contains("IPD"))
+        // Look for magic words
+        if (utext.Contains("SET") || utext.Contains("IPD"))
         {
+            // Placeholders
+            float mValue = 0;
+
+            // Split
             string[] mWords = text.Split(' ');
+
+            // Look for a float
             for (int i = 0; i< mWords.Length; i++)
             {
-                try
+                // Try to parse. If successful, stop looking.
+                if (float.TryParse(mWords[i], out mValue))
                 {
-                    float mValue = float.Parse(mWords[i]);
-                    if (mValue >= 55 && mValue <= 75)
-                    {
-                        WriteValues(mValue);
-                    }
-                    else
-                    {
-                        if (dictatedSentence)
-                        {
-                            dictatedSentence.text += "\n< < IPD must be between 55 - 75 > >";
-                        }
-                    }
+                    break;
                 }
-                catch 
-                {
+            }
 
-                }
-
+            if (mValue >= 55 && mValue <= 75)
+            {
+                ShowError("");
+                UpdateIpd(mValue);
+            }
+            else
+            {
+                ShowError("IPD must be between 55 - 75");
             }
         }
-
     }
-    #endregion //Delegates
+    #endregion // Overrides / Event Handlers
 
+    #region Public Properties
+    /// <summary>
+    /// Gets the current state of the controller.
+    /// </summary>
+    public FBControllerState State
+    {
+        get
+        {
+            return state;
+        }
+        set
+        {
+            if (state != value)
+            {
+                state = value;
+                UpdateVisualState();
+            }
+        }
+    }
+    #endregion // Public Properties
 }
