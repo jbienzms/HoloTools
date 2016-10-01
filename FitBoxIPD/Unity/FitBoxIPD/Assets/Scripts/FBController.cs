@@ -3,12 +3,13 @@ using System.Collections;
 using UnityEngine.UI;
 using UnityEngine.Windows.Speech;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using HoloToolkit.Unity;
 using Adept;
 
 #if WINDOWS_UWP
 using Microsoft.Tools.WindowsDevicePortal;
-using System.Linq;
 using System.Threading.Tasks;
 using Windows.Security.Credentials;
 #endif
@@ -65,13 +66,14 @@ public class FBController : MonoBehaviour
 
     #region Member Variables
     private AppViewInfo authView;
-    private DictationRecognizer dictationRecognizer;
+    private KeywordRecognizer keywordRecognizer;
+    private Dictionary<string, float> keywords = new Dictionary<string, float>();
     private FBControllerState state;
 
     #if WINDOWS_UWP
     private DevicePortal portal;
     private PasswordVault vault;
-#endif
+    #endif
     #endregion // Member Variables
 
     #region Internal Methods
@@ -139,7 +141,10 @@ public class FBController : MonoBehaviour
         catch { }
 
         // If no credentials were found, fail
-        if (cred == null) { return false; }
+        if (cred == null)
+        {
+            return false;
+        }
 
         // Credentials found. Try and log into portal
         try
@@ -184,7 +189,30 @@ public class FBController : MonoBehaviour
             ShowError(ex.Message);
         }
     }
+    #endif
 
+    private void RegisterVoiceCommands()
+    {
+       
+        try
+        {
+            // Add all supported IPDs
+            for (int i = 0; i < 25; i++)
+            {
+                keywords.Add(string.Format("Set IPD to {0}", 50 + i), 50 + i);
+            }
+
+            // Tell the KeywordRecognizer about our keywords.
+            keywordRecognizer = new KeywordRecognizer(keywords.Keys.ToArray());
+
+            // Register a callback for the KeywordRecognizer and start recognizing!
+            keywordRecognizer.OnPhraseRecognized += KeywordRecognizer_OnPhraseRecognized;
+            keywordRecognizer.Start();
+        }
+        catch {}
+    }
+
+    #if WINDOWS_UWP
     /// <summary>
     /// Starts the login (authentication) process by switching to XAML.
     /// </summary>
@@ -268,12 +296,6 @@ public class FBController : MonoBehaviour
             // Actually read IPD
             ReadValues();
 
-            // Start or restart the Dictation Recognizer in case it has paused
-            if (dictationRecognizer.Status != SpeechSystemStatus.Running)
-            {
-                dictationRecognizer.Start();
-            }
-
             // Wait for next poll
             yield return new WaitForSeconds(UPDATE_PERIOD);
         }
@@ -301,15 +323,16 @@ public class FBController : MonoBehaviour
     {
         if (IS_SIDELOADED)
         {
-            // Create recognizer and subscribe
-            dictationRecognizer = new DictationRecognizer();
-            dictationRecognizer.DictationResult += DictationRecognizer_DictationResult;
+            // Register voice commands
+            RegisterVoiceCommands();
 
+            #if WINDOWS_UWP
             // Create the valut
             vault = new PasswordVault();
 
             // Start authentication state machine
             AuthStateMachine();
+            #endif
         }
         else
         {
@@ -320,51 +343,24 @@ public class FBController : MonoBehaviour
 
     void OnDestroy()
     {
-        dictationRecognizer.DictationResult -= DictationRecognizer_DictationResult;
-        dictationRecognizer.Dispose();
     }
     #endregion // Behaviour Overrides
 
     #region Overrides / Event Handlers
     private void AuthView_Consolidated(object sender, EventArgs e)
     {
+       #if WINDOWS_UWP
         // Auth view has been closed. Continue auth state machine.
         AuthStateMachine();
+        #endif
     }
 
-    private void DictationRecognizer_DictationResult(string text, ConfidenceLevel confidence)
+    private void KeywordRecognizer_OnPhraseRecognized(PhraseRecognizedEventArgs args)
     {
-        // To upper for checking
-        var utext = text.ToUpper();
-
-        // Look for magic words
-        if (utext.Contains("SET") || utext.Contains("IPD"))
+        float ipd;
+        if (keywords.TryGetValue(args.text, out ipd))
         {
-            // Placeholders
-            float mValue = 0;
-
-            // Split
-            string[] mWords = text.Split(' ');
-
-            // Look for a float
-            for (int i = 0; i< mWords.Length; i++)
-            {
-                // Try to parse. If successful, stop looking.
-                if (float.TryParse(mWords[i], out mValue))
-                {
-                    break;
-                }
-            }
-
-            if (mValue >= 55 && mValue <= 75)
-            {
-                ShowError("");
-                UpdateIpd(mValue);
-            }
-            else
-            {
-                ShowError("IPD must be between 55 - 75");
-            }
+            UpdateIpd(ipd);
         }
     }
     #endregion // Overrides / Event Handlers
