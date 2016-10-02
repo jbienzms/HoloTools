@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using HoloToolkit.Unity;
 using Adept;
+using System.ComponentModel;
 
 #if WINDOWS_UWP
 using Microsoft.Tools.WindowsDevicePortal;
@@ -44,6 +45,14 @@ public enum FBControllerState
 
 public class FBController : MonoBehaviour
 {
+    #region Nested Types
+    private enum VoiceAction
+    {
+        SignOut = -1,
+        SignIn = -2,
+    }; 
+    #endregion
+
     #region Constants
     private const bool IS_SIDELOADED = true;                // Whether this is a side loaded or store build
     static public readonly string PortalResourceName = "Device Portal";   // Resource name used to store the password in password vault
@@ -101,18 +110,6 @@ public class FBController : MonoBehaviour
                     await StartLoginAsync();
                 }
                 break;
-
-            case FBControllerState.LoggingIn:
-                // Just returned from login dialog. Attempt silent auth again.
-                if (await AuthSilentAsync())
-                {
-                    State = FBControllerState.LoggedIn;
-                }
-                else
-                {
-                    State = FBControllerState.LoggedOut;
-                }
-                break;
         }
 
         // If we get here and we're logged in, start the update loop
@@ -156,6 +153,9 @@ public class FBController : MonoBehaviour
                     cred.UserName,
                     cred.Password));
 
+            // Get cert (OK to use untrusted since it's loopback)
+            await portal.GetRootDeviceCertificate(acceptUntrustedCerts: true);
+
             // Attempt to connect
             await portal.Connect();
 
@@ -196,6 +196,10 @@ public class FBController : MonoBehaviour
        
         try
         {
+            // Add unique commands
+            keywords.Add("Sign out from device portal", (float)VoiceAction.SignOut);
+            keywords.Add("Sign in to device portal", (float)VoiceAction.SignIn);
+
             // Add all supported IPDs
             for (int i = 0; i < 25; i++)
             {
@@ -212,6 +216,44 @@ public class FBController : MonoBehaviour
         catch {}
     }
 
+    private void SignIn()
+    {
+        // Only allow sign in if logged out and not side loaded
+        if ((state == FBControllerState.LoggedOut) && (IS_SIDELOADED))
+        {
+            State = FBControllerState.Initializing;
+
+            AuthStateMachine();
+        }
+    }
+
+    private void SignOut()
+    {
+        // Only allow sign out if logged out
+        if (state == FBControllerState.LoggedIn)
+        {
+            #if WINDOWS_UWP
+            try
+            {
+                // Look for credential
+                var cred = vault.FindAllByResource(PortalResourceName).FirstOrDefault();
+
+                // If found, remove
+                if (cred != null)
+                {
+                    vault.Remove(cred);
+                }
+            }
+            catch { }
+            #endif
+
+            // TODO: Actually disconnect from the portal and close the connection
+
+            // Switch state
+            State = FBControllerState.LoggedOut;
+        }
+    }
+
     #if WINDOWS_UWP
     /// <summary>
     /// Starts the login (authentication) process by switching to XAML.
@@ -222,7 +264,7 @@ public class FBController : MonoBehaviour
         if (authView == null)
         {
             authView = AppViewManager.Views["Auth"];
-            authView.Consolidated += AuthView_Consolidated;
+            // authView.Consolidated += AuthView_Consolidated;
         }
 
         // Switch to auth view
@@ -231,29 +273,34 @@ public class FBController : MonoBehaviour
 
     private async void UpdateIpd(float ipd)
     {
-        try
+        // Update only allowed if signed in
+        if (state == FBControllerState.LoggedIn)
         {
-             // Set IPD
-            await portal.SetInterPupilaryDistance(ipd);
+            try
+            {
+                // Set IPD
+                await portal.SetInterPupilaryDistance(ipd);
 
-            // Reread values
-            ReadValues();
+                // Reread values
+                ReadValues();
 
-            // Define message to speak
-            var speakText = string.Format("IPD set to {0}", ipd);
+                // Define message to speak
+                var speakText = string.Format("IPD set to {0}", ipd);
 
-            // Speak the message
-            textToSpeech.SpeakText(speakText);
-        }
-        catch (Exception ex)
-        {
-            // Show error on Unity thread
-            ShowError(ex.Message);
+                // Speak the message
+                textToSpeech.SpeakText(speakText);
+            }
+            catch (Exception ex)
+            {
+                // Show error on Unity thread
+                ShowError(ex.Message);
+            }
         }
     }
 
     #else
     private void AuthenticateAsync() { }
+    private void AuthStateMachine() { }
     private void ReadValues() { }
     private void UpdateIpd(float ipd)   {  }
     #endif
@@ -347,23 +394,61 @@ public class FBController : MonoBehaviour
     #endregion // Behaviour Overrides
 
     #region Overrides / Event Handlers
-    private void AuthView_Consolidated(object sender, EventArgs e)
-    {
-       #if WINDOWS_UWP
-        // Auth view has been closed. Continue auth state machine.
-        AuthStateMachine();
-        #endif
-    }
+    //private void AuthView_Consolidated(object sender, EventArgs e)
+    //{
+    //}
 
     private void KeywordRecognizer_OnPhraseRecognized(PhraseRecognizedEventArgs args)
     {
+        // Placeholder
         float ipd;
+
+        // Try to find command in list
         if (keywords.TryGetValue(args.text, out ipd))
         {
-            UpdateIpd(ipd);
+            // Is it an action or an ipd?
+            if (ipd < 0)
+            {
+                var action = (VoiceAction)ipd;
+                switch (action)
+                {
+                    case VoiceAction.SignOut:
+                        SignOut();
+                        break;
+                    case VoiceAction.SignIn:
+                        SignIn();
+                        break;
+                }
+            }
+            else
+            {
+                UpdateIpd(ipd);
+            }
         }
     }
     #endregion // Overrides / Event Handlers
+
+    #if WINDOWS_UWP
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public void ContinueAuthFromLogin(DevicePortal portal)
+    {
+        // Overwrite portal variable with the one passed to us from auth window
+        this.portal = portal;
+
+        // If we have a valid portal we're signed in
+        if (portal != null)
+        {
+            State = FBControllerState.LoggedIn;
+        }
+        else
+        {
+            State = FBControllerState.LoggedOut;
+        }
+
+        // Auth view has been closed. Continue auth state machine.
+        AuthStateMachine();
+    }
+    #endif
 
     #region Public Properties
     /// <summary>
