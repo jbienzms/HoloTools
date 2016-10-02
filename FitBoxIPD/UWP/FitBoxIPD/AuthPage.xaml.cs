@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
+using UnityEngine;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
 using Windows.Security.Credentials;
@@ -29,6 +30,7 @@ namespace FitBoxIPD
     public sealed partial class AuthPage : Page
     {
         #region Member Variables
+        private DevicePortal portal;
         private PasswordVault vault;
         #endregion // Member Variables
 
@@ -49,9 +51,31 @@ namespace FitBoxIPD
                 // Save credentials
                 StoreCredentials();
 
-                // Switch back to Main view and consolidate (close) this one
-                await AppViewManager.Views["Main"].SwitchAsync(ApplicationViewSwitchingOptions.ConsolidateViews);
+                // Return to main view
+                await ReturnToMain(true);
             }
+        }
+
+        private async Task ReturnToMain(bool authenticated)
+        {
+            // Get our auth view
+            var authView = AppViewManager.Views["Auth"];
+
+            // Switch back to Main view and consolidate (close) this one
+            await AppViewManager.Views["Main"].SwitchAsync(authView, ApplicationViewSwitchingOptions.ConsolidateViews);
+
+            // Try to notify the controller but must do it on Unitys thread
+            ThreadExtensions.RunOnAppThread(() =>
+            {
+                // Get our FB Controller
+                var controller = GameObject.FindObjectOfType<FBController>();
+
+                // If found, notify to continue
+                if (controller != null)
+                {
+                    controller.ContinueAuthFromLogin((authenticated ? portal : null));
+                }
+            });
         }
 
         private async Task<bool> TryAuthenticateAsync()
@@ -59,11 +83,14 @@ namespace FitBoxIPD
             try
             {
                 // Create portal object
-                var portal = new DevicePortal(
+                portal = new DevicePortal(
                     new DefaultDevicePortalConnection(
                         "https://127.0.0.1",
                         UserNameBox.Text,
                         PasswordBox.Password));
+
+                // Get cert (OK to use untrusted since it's loopback)
+                await portal.GetRootDeviceCertificate(acceptUntrustedCerts: true);
 
                 // Attempt to connect
                 await portal.Connect();
@@ -74,10 +101,10 @@ namespace FitBoxIPD
                 // Success!
                 return true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // Problem
-                await new MessageDialog(ex.Message, "Error").ShowAsync();
+                await new MessageDialog("Authentication was not successful. Please make sure Device Portal is enabled and check your password.", "Error").ShowAsync();
                 return false;
             }
         }
@@ -123,7 +150,7 @@ namespace FitBoxIPD
         private async void CancelButton_Click(object sender, RoutedEventArgs e)
         {
             // Switch back to Main view and consolidate (close) this one
-            await AppViewManager.Views["Main"].SwitchAsync(ApplicationViewSwitchingOptions.ConsolidateViews);
+            await ReturnToMain(false);
         }
     }
 }

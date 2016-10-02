@@ -222,12 +222,12 @@
     <None Include="WSATestCertificate.pfx" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="C:/Users/jbienz/Code/Microsoft/HoloTools/FitBoxIPD/Unity/FitBoxIPD/Assets\..\UWP\Assembly-CSharp\Assembly-CSharp.csproj">
+    <ProjectReference Include="..\..\Unity\FitBoxIPD\UWP\Assembly-CSharp\Assembly-CSharp.csproj">
       <Project>{FBA57953-C0C3-F9D8-E86A-9F7C063B5FDE}</Project>
       <Name>Assembly-CSharp</Name>
       <Private>False</Private>
     </ProjectReference>
-    <ProjectReference Include="C:/Users/jbienz/Code/Microsoft/HoloTools/FitBoxIPD/Unity/FitBoxIPD/Assets\..\UWP\Assembly-CSharp-firstpass\Assembly-CSharp-firstpass.csproj">
+    <ProjectReference Include="..\..\Unity\FitBoxIPD\UWP\Assembly-CSharp-firstpass\Assembly-CSharp-firstpass.csproj">
       <Project>{194D914D-0664-444E-B663-4D0F1C80AF68}</Project>
       <Name>Assembly-CSharp-firstpass</Name>
       <Private>False</Private>

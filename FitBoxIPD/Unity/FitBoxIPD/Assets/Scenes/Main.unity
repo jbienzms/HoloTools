@@ -37,7 +37,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.44692463, g: 0.49678576, b: 0.5750852, a: 1}
+  m_IndirectSpecularColor: {r: 0.4469236, g: 0.49678588, b: 0.5750852, a: 1}
 --- !u!157 &3
 LightmapSettings:
   m_ObjectHideFlags: 0
@@ -192,7 +192,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 495847745}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c898b25b73701da43ab3057b49b3c024, type: 3}
+  m_Script: {fileID: 11500000, guid: 6d2e4bd23acee3a4c8975496f8746f8a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   errorText: {fileID: 1152603772}
@@ -528,7 +528,7 @@ MonoBehaviour:
       m_Calls: []
     m_TypeName: UnityEngine.UI.MaskableGraphic+CullStateChangedEvent, UnityEngine.UI,
       Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-  m_Texture: {fileID: 2800000, guid: b42e90f1bce682b448bb37ff8d3cf2a4, type: 3}
+  m_Texture: {fileID: 2800000, guid: d8916f34d32c27e49a0dd4d90458ee6b, type: 3}
   m_UVRect:
     serializedVersion: 2
     x: 0
@@ -960,14 +960,14 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 2
-  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 1}
+  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 0}
   m_NormalizedViewPortRect:
     serializedVersion: 2
     x: 0
     y: 0
     width: 1
     height: 1
-  near clip plane: 0.85
+  near clip plane: 0.3
   far clip plane: 1000
   field of view: 16
   orthographic: 0
