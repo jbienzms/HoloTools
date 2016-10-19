@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Package xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" xmlns:uap2="http://schemas.microsoft.com/appx/manifest/uap/windows10/2" IgnorableNamespaces="uap uap2 mp" xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10">
-  <Identity Name="FitBoxIPD" Publisher="CN=DefaultCompany" Version="1.0.0.0" />
+  <Identity Name="FitBoxIPD" Publisher="CN=SolerSoft" Version="1.0.0.0" />
   <mp:PhoneIdentity PhoneProductId="aa94b106-219d-4b4b-bca7-0b889b8da4dc" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
   <Properties>
     <DisplayName>FitBoxIPD</DisplayName>

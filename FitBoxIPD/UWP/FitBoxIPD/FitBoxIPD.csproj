@@ -21,6 +21,10 @@
     <PackageCertificateKeyFile>WSATestCertificate.pfx</PackageCertificateKeyFile>
     <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
     <PlatformShortName>$(Platform)</PlatformShortName>
+    <AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
+    <AppxPackageDir>C:\tmp\FitBoxIPD\</AppxPackageDir>
+    <AppxBundle>Always</AppxBundle>
+    <AppxBundlePlatforms>x86</AppxBundlePlatforms>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|ARM'">
     <DebugSymbols>true</DebugSymbols>
@@ -116,7 +120,7 @@
     <UseVSHostingProcess>false</UseVSHostingProcess>
     <ErrorReport>prompt</ErrorReport>
     <Prefer32Bit>true</Prefer32Bit>
-    <UseDotNetNativeToolchain>False</UseDotNetNativeToolchain>
+    <UseDotNetNativeToolchain>false</UseDotNetNativeToolchain>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Master|x86'">
     <OutputPath>bin\x86\Master\</OutputPath>
@@ -153,8 +157,8 @@
       <DependentUpon>App.xaml</DependentUpon>
     </Compile>
     <Page Include="AuthPage.xaml">
-      <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
     </Page>
     <Page Include="MainPage.xaml">
       <Generator>MSBuild:Compile</Generator>
@@ -222,12 +226,12 @@
     <None Include="WSATestCertificate.pfx" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\Unity\FitBoxIPD\UWP\Assembly-CSharp\Assembly-CSharp.csproj">
+    <ProjectReference Include="C:/Users/jbienz/Code/Microsoft/HoloTools/FitBoxIPD/Unity/FitBoxIPD/Assets\..\UWP\Assembly-CSharp\Assembly-CSharp.csproj">
       <Project>{FBA57953-C0C3-F9D8-E86A-9F7C063B5FDE}</Project>
       <Name>Assembly-CSharp</Name>
       <Private>False</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\Unity\FitBoxIPD\UWP\Assembly-CSharp-firstpass\Assembly-CSharp-firstpass.csproj">
+    <ProjectReference Include="C:/Users/jbienz/Code/Microsoft/HoloTools/FitBoxIPD/Unity/FitBoxIPD/Assets\..\UWP\Assembly-CSharp-firstpass\Assembly-CSharp-firstpass.csproj">
       <Project>{194D914D-0664-444E-B663-4D0F1C80AF68}</Project>
       <Name>Assembly-CSharp-firstpass</Name>
       <Private>False</Private>

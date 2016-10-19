@@ -37,7 +37,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.4469236, g: 0.49678588, b: 0.5750852, a: 1}
+  m_IndirectSpecularColor: {r: 0.44692463, g: 0.49678576, b: 0.5750852, a: 1}
 --- !u!157 &3
 LightmapSettings:
   m_ObjectHideFlags: 0
@@ -163,7 +163,7 @@ GameObject:
   serializedVersion: 4
   m_Component:
   - 4: {fileID: 495847746}
-  - 114: {fileID: 495847747}
+  - 114: {fileID: 495847748}
   m_Layer: 0
   m_Name: Controllers
   m_TagString: Untagged
@@ -184,7 +184,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 2
---- !u!114 &495847747
+--- !u!114 &495847748
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_PrefabParentObject: {fileID: 0}
@@ -192,7 +192,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 495847745}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6d2e4bd23acee3a4c8975496f8746f8a, type: 3}
+  m_Script: {fileID: 11500000, guid: c898b25b73701da43ab3057b49b3c024, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   errorText: {fileID: 1152603772}
@@ -400,6 +400,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   audioSource: {fileID: 834900828}
+  voice: 0
 --- !u!82 &834900828
 AudioSource:
   m_ObjectHideFlags: 0
@@ -528,7 +529,7 @@ MonoBehaviour:
       m_Calls: []
     m_TypeName: UnityEngine.UI.MaskableGraphic+CullStateChangedEvent, UnityEngine.UI,
       Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-  m_Texture: {fileID: 2800000, guid: d8916f34d32c27e49a0dd4d90458ee6b, type: 3}
+  m_Texture: {fileID: 2800000, guid: b42e90f1bce682b448bb37ff8d3cf2a4, type: 3}
   m_UVRect:
     serializedVersion: 2
     x: 0
